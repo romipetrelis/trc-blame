@@ -1,0 +1,10 @@
+{
+    // ID must be unique on the gallery
+    "Id": "trc-blame",
+    "Name": "trc-blame",
+    "Author" :  "Voter-Science",
+    "Website" :  "https://github.com/Voter-Science/TRC-API-Samples",
+    "Description": "A blame plugin",        
+    "Version": "1.0.0", // User SemVer
+    "Tags": [ "trc", "blame"  ]
+}

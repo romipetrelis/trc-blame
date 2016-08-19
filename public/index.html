@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+
+<!--<link rel="stylesheet" type="text/css" href="trcgrid.css">-->
+
+<script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
+<script src="bundle.js"></script>
+<!-- HACK -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.1/Chart.min.js"></script>
+<script>
+    // plugin startup shim
+    var _pluginModule = require('pluginmain');
+    
+    // Global reference to the current sheet;
+    var _plugin = null;
+    // Well-known entry point, called by hosting infrastructure
+    function PluginMain(sheetRef, opts) {
+        _pluginModule.MyPlugin.BrowserEntry(sheetRef, opts, function(plugin) {
+            _plugin = plugin;
+            // Called when finished loading to show main body
+            $("#prebody").hide();  
+            $("#main2").show();
+        });
+    }
+</script>
+<script src="https://trcanvasdata.blob.core.windows.net/code2/plugin.js"></script>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>TRC Blame Plugin</title>
+</head>
+<body>
+    <div id="prebody">
+        Loading...
+    </div>
+    <div id="main2"  style="display:none">
+        
+        <button onclick="_plugin.onClickRefresh()">Refresh!</button>
+
+        <button onclick="_plugin.loadSheetContents()">Load!</button>
+
+        <div id="contents">
+
+        </div>
+    </div>
+</body>
+</html>
