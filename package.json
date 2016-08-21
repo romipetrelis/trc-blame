@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "prebuild": "tsc -p src",
+    "prebuild": "typings install && tsc -p src",
     "pretest": "npm run prebuild && tsc -p tests",
     "build": "browserify -r ./src/pluginmain.js:pluginmain -o public/bundle.js",
     "test": "mocha tests",

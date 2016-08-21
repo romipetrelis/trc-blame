@@ -1,7 +1,4 @@
 {
-  "dependencies": {
-    "chart.js": "registry:npm/chart.js#2.1.4+20160615174920"
-  },
   "globalDependencies": {
     "chart.js": "registry:dt/chart.js#0.0.0+20160805131920"
   }
