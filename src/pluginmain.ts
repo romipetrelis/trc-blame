@@ -4,7 +4,8 @@
 import * as trc from "trclib/trc2";
 import * as html from "trclib/trchtml";
 import * as trcFx from "trclib/trcfx";
-import {DeltasChartDataByDate} from "./deltas-chartdata-by-date";
+import {DeltasPerDate} from "./deltas-per-date";
+import {DeltasPerUser} from "./deltas-per-user";
 
 declare var $:any; 
 
@@ -47,9 +48,8 @@ export class MyPlugin {
     }
 
     private onDeltasReceived(segment:any) { //HACK: IHistorySegment appears to not be exported
-        var byDate = DeltasChartDataByDate.transform(segment.Results);
-        
-        MyPlugin.addBarChart(byDate);
+        MyPlugin.addBarChart(DeltasPerDate.transform(segment.Results));
+        MyPlugin.addBarChart(DeltasPerUser.transform(segment.Results));
     }
 
     private static addBarChart(chartData:LinearChartData):void {
