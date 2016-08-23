@@ -6,6 +6,7 @@ import * as html from "trclib/trchtml";
 import * as trcFx from "trclib/trcfx";
 import {DeltasPerDate} from "./deltas-per-date";
 import {DeltasPerUser} from "./deltas-per-user";
+import {DeltasPerField} from "./deltas-per-field";
 
 declare var $:any; 
 
@@ -50,6 +51,10 @@ export class MyPlugin {
     private onDeltasReceived(segment:any) { //HACK: IHistorySegment appears to not be exported
         MyPlugin.addBarChart(DeltasPerDate.transform(segment.Results));
         MyPlugin.addBarChart(DeltasPerUser.transform(segment.Results));
+        let fieldChartDatas = DeltasPerField.transform(segment.Results);
+        for(let fieldChartData of fieldChartDatas) {
+            MyPlugin.addBarChart(fieldChartData);
+        }
     }
 
     private static addBarChart(chartData:LinearChartData):void {
