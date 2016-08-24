@@ -31,20 +31,27 @@ export class MyPlugin {
             options = trc.PluginOptionsHelper.New(opts, trcSheet),
             plugin = new MyPlugin(trcSheet, options);
         
-        MyPlugin.fetchDeltas(trcSheet);
+        trcSheet.getInfo((result:trc.ISheetInfoResult)=> {
+            MyPlugin.fetchDeltas(trcSheet, result);
+        });
+
         next(plugin);
     }
 
-    private static fetchDeltas(sheet:trc.Sheet) : void {
+    private static fetchDeltas(sheet:trc.Sheet, sheetInfo:trc.ISheetInfoResult) : void {
         sheet.getDeltas((segment)=> {
-            MyPlugin.onDeltasReceived(segment);
+            MyPlugin.onDeltasReceived(segment, sheetInfo);
         }); 
     }
 
-    private static onDeltasReceived(segment:any) { //HACK: IHistorySegment appears to not be exported
-        MyPlugin.addBarChart(DeltasPerDate.transform(segment.Results));
-        MyPlugin.addBarChart(DeltasPerUser.transform(segment.Results));
-        let fieldChartDatas = DeltasPerField.transform(segment.Results);
+    private static onDeltasReceived(segment:any, sheetInfo:trc.ISheetInfoResult) { //HACK: IHistorySegment appears to not be exported
+        let deltas:trc.IDeltaInfo[] = segment.Results;
+
+        MyPlugin.addBarChart(DeltasPerDate.transform(deltas));
+        MyPlugin.addBarChart(DeltasPerUser.transform(deltas));
+        let columnTransformer = new DeltasPerField(deltas, sheetInfo.Columns);
+        let fieldChartDatas = columnTransformer.transform();
+        
         for(let fieldChartData of fieldChartDatas) {
             MyPlugin.addBarChart(fieldChartData);
         }
