@@ -30,25 +30,18 @@ export class MyPlugin {
         let trcSheet = new trc.Sheet(sheet),
             options = trc.PluginOptionsHelper.New(opts, trcSheet),
             plugin = new MyPlugin(trcSheet, options);
-
+        
+        MyPlugin.fetchDeltas(trcSheet);
         next(plugin);
     }
 
-    public loadSheetContents(): void {
-        this.fetchDeltas();        
-    }
-
-    public refresh() {
-        this.fetchDeltas();
-    }
-
-    private fetchDeltas() : void {
-        this.sheet.getDeltas((segment)=> {
-            this.onDeltasReceived(segment);
+    private static fetchDeltas(sheet:trc.Sheet) : void {
+        sheet.getDeltas((segment)=> {
+            MyPlugin.onDeltasReceived(segment);
         }); 
     }
 
-    private onDeltasReceived(segment:any) { //HACK: IHistorySegment appears to not be exported
+    private static onDeltasReceived(segment:any) { //HACK: IHistorySegment appears to not be exported
         MyPlugin.addBarChart(DeltasPerDate.transform(segment.Results));
         MyPlugin.addBarChart(DeltasPerUser.transform(segment.Results));
         let fieldChartDatas = DeltasPerField.transform(segment.Results);
