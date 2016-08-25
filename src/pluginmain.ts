@@ -47,7 +47,7 @@ export class MyPlugin {
         let deltas:trc.IDeltaInfo[] = segment.Results;
 
         MyPlugin.addBarChart(DeltasPerDate.transform(deltas));
-        MyPlugin.addBarChart(DeltasPerUser.transform(deltas));
+        let userChart = MyPlugin.addBarChart(DeltasPerUser.transform(deltas));
         let columnTransformer = new DeltasPerField(deltas, sheetInfo.Columns);
         let fieldChartDatas = columnTransformer.transform();
         
@@ -61,7 +61,8 @@ export class MyPlugin {
 
         let chartOptions:ChartOptions = {
             responsive: true,
-            maintainAspectRatio:true
+            maintainAspectRatio:true,
+            onClick: undefined
         };
 
         let chartConfig:ChartConfiguration = {
@@ -78,6 +79,16 @@ export class MyPlugin {
         contents.appendChild(container);
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
+
+        canvas.onclick = MyPlugin.onClick(chart);
+    }
+    
+    private static onClick(chart:any) {
+        return (e:any) => {
+            console.log("hello from invocation of the click handler");
+            let elem = chart.getElementAtEvent(e);
+            console.log(elem);
+        };
     }
 
     private static addColor(target:ChartDataSets):void {
