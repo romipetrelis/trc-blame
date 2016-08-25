@@ -17,7 +17,6 @@ export class DeltasPerField {
         let toReturn = previous.slice(0);
         let thisColumn = current.Name;
         
-        console.log(current);
         if (DeltasPerField.FIELDS_TO_IGNORE.indexOf(thisColumn) >= 0) return toReturn;
 
         toReturn.push(current.Name);

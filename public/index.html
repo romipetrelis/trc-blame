@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 
-<!--<link rel="stylesheet" type="text/css" href="trcgrid.css">-->
+<link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
 <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
 <script src="bundle.js"></script>
-<!-- HACK -->
+
+<!-- TODO: do we want CDN references to these libraries or should they be included in the bundle? -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.1/Chart.min.js"></script>
+
 <script>
     // plugin startup shim
     var _pluginModule = require('pluginmain');
@@ -30,14 +32,17 @@
     <title>TRC Blame Plugin</title>
 </head>
 <body>
-    <div id="prebody">
-        Loading...
-    </div>
-    <div id="main2"  style="display:none">
-        
-        <div id="contents">
+    <div class="container">
+        <div id="prebody">
+            Loading...
+        </div>
+        <div id="main2"  style="display:none">
+            
+            <div id="contents">
 
+            </div>
         </div>
     </div>
+    
 </body>
 </html>

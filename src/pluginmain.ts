@@ -1,6 +1,5 @@
 /// <reference path="../typings/globals/chart.js/index.d.ts" />
 
-
 import * as trc from "trclib/trc2";
 import * as html from "trclib/trchtml";
 import * as trcFx from "trclib/trcfx";
@@ -56,16 +55,40 @@ export class MyPlugin {
             MyPlugin.addBarChart(fieldChartData);
         }
     }
-
+    
     private static addBarChart(chartData:LinearChartData):void {
-        var chartConfig:ChartConfiguration = {
+        MyPlugin.addColor(chartData.datasets[0]);
+
+        let chartOptions:ChartOptions = {
+            responsive: true,
+            maintainAspectRatio:true
+        };
+
+        let chartConfig:ChartConfiguration = {
                     type: "bar",
-                    data: chartData
+                    data: chartData,
+                    options: chartOptions
                 };
-        var canvas = document.createElement("canvas");
-        var container = document.getElementById("contents");
+        
+        let canvas = document.createElement("canvas");
+        let container:HTMLDivElement = document.createElement("div");
+        container.className = "col-xs-12 col-md-6";
         container.appendChild(canvas);
-        var ctx = canvas.getContext("2d");
-        var chart = new Chart(ctx, chartConfig);
+        let contents = document.getElementById("contents");
+        contents.appendChild(container);
+        let ctx = canvas.getContext("2d");
+        let chart = new Chart(ctx, chartConfig);
+    }
+
+    private static addColor(target:ChartDataSets):void {
+        let colors:Array<string> = new Array<string>();
+        for(let i=0; i< target.data.length; i++) {
+            colors.push(MyPlugin.randomColor());
+        }
+        target.backgroundColor = colors;
+    }
+
+    private static randomColor():string {
+        return "#" + Math.random().toString(16).slice(2, 8);
     }
 }
