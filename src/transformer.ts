@@ -82,15 +82,15 @@ export class Transformer {
 
     private static toHistoryItem(delta:trc.IDeltaInfo, columnValue:any, deltaDayString:string) {
         return {
-        "version" : delta.Version,
-        "user": delta.User,
-        "changedOn": delta.Timestamp,
-        "changedOnDay": deltaDayString,
-        "geoLat": delta.GeoLat,
-        "geoLong": delta.GeoLong,
-        "userIp": delta.UserIp,
-        "app": delta.App,
-        "value": columnValue
+            "version" : delta.Version,
+            "user": delta.User,
+            "changedOn": delta.Timestamp,
+            "changedOnDay": deltaDayString,
+            "geoLat": delta.GeoLat,
+            "geoLong": delta.GeoLong,
+            "userIp": delta.UserIp,
+            "app": delta.App,
+            "value": columnValue
         };
     }
 
