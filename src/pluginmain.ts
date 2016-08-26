@@ -1,19 +1,12 @@
 /// <reference path="../typings/globals/chart.js/index.d.ts" />
 
 import * as trc from "trclib/trc2";
-import * as html from "trclib/trchtml";
-import * as trcFx from "trclib/trcfx";
-import {DeltasToDateChartData} from "./chartdata-date";
-import {DeltasToUserChartData} from "./chartdata-user";
-import {DeltasToFieldChartDatas} from "./chartdata-fields";
-
-declare var $:any; 
+import {Transformer} from "./transformer";
 
 export class MyPlugin {
     private sheet:trc.Sheet;
     private opts:trc.PluginOptionsHelper;
-    private info:trc.ISheetInfoResult;
-    private data:trc.SheetContents;
+    private viewData:any;
 
     public constructor(sheet:trc.Sheet, opts:trc.PluginOptionsHelper) {
         this.sheet = sheet;    
@@ -31,51 +24,50 @@ export class MyPlugin {
             plugin = new MyPlugin(trcSheet, options);
         
         trcSheet.getInfo((result:trc.ISheetInfoResult)=> {
-            MyPlugin.fetchDeltas(trcSheet, result);
+            plugin.fetchDeltas(trcSheet, result);
         });
 
         next(plugin);
     }
 
-    private static fetchDeltas(sheet:trc.Sheet, sheetInfo:trc.ISheetInfoResult) : void {
+    private fetchDeltas = (sheet:trc.Sheet, sheetInfo:trc.ISheetInfoResult):void => {
         sheet.getDeltas((segment)=> {
-            MyPlugin.onDeltasReceived(segment, sheetInfo);
-        }); 
-    }
+            this.onDeltasReceived(segment, sheetInfo);
+        });
+    };
 
-    private static onDeltasReceived(segment:any, sheetInfo:trc.ISheetInfoResult) { //HACK: IHistorySegment appears to not be exported
+    private onDeltasReceived = (segment:any, sheetInfo:trc.ISheetInfoResult):void => {
         let deltas:trc.IDeltaInfo[] = segment.Results;
+        this.viewData = Transformer.transform(deltas);
 
-        MyPlugin.createBarChart("Timestamp", DeltasToDateChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
-        MyPlugin.createBarChart("User", DeltasToUserChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
-        let columnTransformer = new DeltasToFieldChartDatas(deltas, sheetInfo.Columns);
-        let fieldChartDataContainers = columnTransformer.transform();
+        let dailyData = MyPlugin.createChartData(this.viewData.dailyEditCounts, "# Edits per Day");
+        let dailyChart = MyPlugin.createBarChart("changedOnDay", dailyData, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated)
+
+        let userData = MyPlugin.createChartData(this.viewData.userEditCounts, "# Edits per User");
+        let userChart = MyPlugin.createBarChart("user", userData, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
         
-        for(let container of fieldChartDataContainers) {
-           MyPlugin.createBarChart(container.name, container.data, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+        let fields = this.viewData.columnValueCounts;
+
+        let skip = ["Comments", "RecId"];
+        for(let field in fields) {
+            if (skip.indexOf(field)>-1) continue;
+            
+            let fieldData = MyPlugin.createChartData(fields[field], field);
+            let fieldChart = MyPlugin.createBarChart(field, fieldData, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
         }
+    };
+
+    private static createChartData = (dictionary:any, title?:string):LinearChartData => {
+        let toReturn:LinearChartData = { "labels":[], "datasets":[ { "label": title, "data":[] }]};
+
+        let dataArray = toReturn.datasets[0].data as Array<number>;        
+        for(let key in dictionary) {
+            toReturn.labels.push(key);
+            dataArray.push(dictionary[key]);
+        }
+        return toReturn;
     }
 
-    private static handleCanvasCreated(canvas:HTMLCanvasElement) {
-        let container = document.createElement("div");
-        container.className = "col-xs-12 col-md-6";
-        container.appendChild(canvas);
-        let allCharts = document.getElementById("all-charts");
-        allCharts.appendChild(container);
-    }
-
-    private static handleChartCreated(name:string, chart:{}, canvas:HTMLCanvasElement) {
-        let clickHandler = (aChart:any) => {return (e:any)=> {
-            let a = aChart.getElementAtEvent(e);
-            if (a && a.length > 0) {
-                let model = a[0]._model;
-                console.log(`where [${name}] = ${model.label}`);
-            }
-        }};
-
-        canvas.onclick = clickHandler(chart);
-    }
-    
     private static createBarChart(
         name:string, 
         data:LinearChartData, 
@@ -116,4 +108,38 @@ export class MyPlugin {
     private static randomColor():string {
         return "#" + Math.random().toString(16).slice(2, 8);
     }
+
+    private static handleCanvasCreated(canvas:HTMLCanvasElement) {
+        let container = document.createElement("div");
+        container.className = "col-xs-12 col-md-6";
+        container.appendChild(canvas);
+        let allCharts = document.getElementById("all-charts");
+        allCharts.appendChild(container);
+    }
+
+    private static handleChartCreated(name:string, chart:{}, canvas:HTMLCanvasElement) {
+        let clickHandler = (aChart:any) => {return (e:any)=> {
+            let a = aChart.getElementAtEvent(e);
+            if (a && a.length > 0) {
+                let model = a[0]._model;
+                console.log(`where [${name}] = ${model.label}`);
+            }
+        }};
+
+        canvas.onclick = clickHandler(chart);
+    }
+    
+    // private onDeltasReceivedOld(segment:any, sheetInfo:trc.ISheetInfoResult) { //HACK: IHistorySegment appears to not be exported
+    //     let deltas:trc.IDeltaInfo[] = segment.Results;
+    //     this.viewData = Transformer.transform(deltas);
+
+    //     MyPlugin.createBarChart("Timestamp", DeltasToDateChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+    //     MyPlugin.createBarChart("User", DeltasToUserChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+    //     let columnTransformer = new DeltasToFieldChartDatas(deltas, sheetInfo.Columns);
+    //     let fieldChartDataContainers = columnTransformer.transform();
+        
+    //     for(let container of fieldChartDataContainers) {
+    //        MyPlugin.createBarChart(container.name, container.data, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+    //     }
+    // }
 }
