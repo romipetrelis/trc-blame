@@ -3,9 +3,9 @@
 import * as trc from "trclib/trc2";
 import * as html from "trclib/trchtml";
 import * as trcFx from "trclib/trcfx";
-import {DeltasPerDate} from "./deltas-per-date";
-import {DeltasPerUser} from "./deltas-per-user";
-import {DeltasPerField} from "./deltas-per-field";
+import {DeltasToDateChartData} from "./chartdata-date";
+import {DeltasToUserChartData} from "./chartdata-user";
+import {DeltasToFieldChartDatas} from "./chartdata-fields";
 
 declare var $:any; 
 
@@ -46,49 +46,63 @@ export class MyPlugin {
     private static onDeltasReceived(segment:any, sheetInfo:trc.ISheetInfoResult) { //HACK: IHistorySegment appears to not be exported
         let deltas:trc.IDeltaInfo[] = segment.Results;
 
-        MyPlugin.addBarChart(DeltasPerDate.transform(deltas));
-        let userChart = MyPlugin.addBarChart(DeltasPerUser.transform(deltas));
-        let columnTransformer = new DeltasPerField(deltas, sheetInfo.Columns);
-        let fieldChartDatas = columnTransformer.transform();
+        MyPlugin.createBarChart("Timestamp", DeltasToDateChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+        MyPlugin.createBarChart("User", DeltasToUserChartData.transform(deltas), MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
+        let columnTransformer = new DeltasToFieldChartDatas(deltas, sheetInfo.Columns);
+        let fieldChartDataContainers = columnTransformer.transform();
         
-        for(let fieldChartData of fieldChartDatas) {
-            MyPlugin.addBarChart(fieldChartData);
+        for(let container of fieldChartDataContainers) {
+           MyPlugin.createBarChart(container.name, container.data, MyPlugin.handleCanvasCreated, MyPlugin.handleChartCreated);
         }
     }
-    
-    private static addBarChart(chartData:LinearChartData):void {
-        MyPlugin.addColor(chartData.datasets[0]);
 
-        let chartOptions:ChartOptions = {
+    private static handleCanvasCreated(canvas:HTMLCanvasElement) {
+        let container = document.createElement("div");
+        container.className = "col-xs-12 col-md-6";
+        container.appendChild(canvas);
+        let allCharts = document.getElementById("all-charts");
+        allCharts.appendChild(container);
+    }
+
+    private static handleChartCreated(name:string, chart:{}, canvas:HTMLCanvasElement) {
+        let clickHandler = (aChart:any) => {return (e:any)=> {
+            let a = aChart.getElementAtEvent(e);
+            if (a && a.length > 0) {
+                let model = a[0]._model;
+                console.log(`where [${name}] = ${model.label}`);
+            }
+        }};
+
+        canvas.onclick = clickHandler(chart);
+    }
+    
+    private static createBarChart(
+        name:string, 
+        data:LinearChartData, 
+        onCanvasCreated:(canvas:HTMLCanvasElement)=>void, 
+        onChartCreated?:(chartName:string, chart:{}, canvas:HTMLCanvasElement)=>void):void {
+
+        MyPlugin.addColor(data.datasets[0]);
+
+        let options:ChartOptions = {
             responsive: true,
             maintainAspectRatio:true,
             onClick: undefined
         };
 
         let chartConfig:ChartConfiguration = {
-                    type: "bar",
-                    data: chartData,
-                    options: chartOptions
-                };
+            type: "bar",
+            data: data,
+            options: options
+        };
         
         let canvas = document.createElement("canvas");
-        let container:HTMLDivElement = document.createElement("div");
-        container.className = "col-xs-12 col-md-6";
-        container.appendChild(canvas);
-        let contents = document.getElementById("contents");
-        contents.appendChild(container);
+        onCanvasCreated(canvas);
+        
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
 
-        canvas.onclick = MyPlugin.onClick(chart);
-    }
-    
-    private static onClick(chart:any) {
-        return (e:any) => {
-            console.log("hello from invocation of the click handler");
-            let elem = chart.getElementAtEvent(e);
-            console.log(elem);
-        };
+        if (onChartCreated) onChartCreated(name, chart, canvas);
     }
 
     private static addColor(target:ChartDataSets):void {

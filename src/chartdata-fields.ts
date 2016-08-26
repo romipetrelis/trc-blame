@@ -1,7 +1,17 @@
 /// <reference path="../typings/globals/chart.js/index.d.ts" />
 import * as trc from "trclib/trc2";
 
-export class DeltasPerField {
+export class LinearChartDataContainer {
+    data:LinearChartData;
+    name:string;
+
+    constructor(name:string, data:LinearChartData) {
+        this.name = name;
+        this.data = data;
+    }
+}
+
+export class DeltasToFieldChartDatas {
     private deltas:trc.IDeltaInfo[];
     private columns:trc.IColumnInfo[];
     private fieldsWeCareAbout:string[];
@@ -10,27 +20,27 @@ export class DeltasPerField {
     constructor(deltas:trc.IDeltaInfo[], columns:trc.IColumnInfo[]) {
         this.deltas = deltas;
         this.columns = columns;
-        this.fieldsWeCareAbout = columns.reduce(DeltasPerField.columnNamesReducer, []);
+        this.fieldsWeCareAbout = columns.reduce(DeltasToFieldChartDatas.columnNamesReducer, []);
     }
 
     private static columnNamesReducer(previous:string[], current:trc.IColumnInfo) {
         let toReturn = previous.slice(0);
         let thisColumn = current.Name;
         
-        if (DeltasPerField.FIELDS_TO_IGNORE.indexOf(thisColumn) >= 0) return toReturn;
+        if (DeltasToFieldChartDatas.FIELDS_TO_IGNORE.indexOf(thisColumn) >= 0) return toReturn;
 
         toReturn.push(current.Name);
         return toReturn;
     }
 
-    transform():LinearChartData[] {
+    transform():LinearChartDataContainer[] {
         let dictionary = this.deltas.reduce(this.pivot, {});
-        let toReturn = new Array<LinearChartData>();
+        let toReturn = new Array<LinearChartDataContainer>();
         
         for(let field in dictionary) {
-            let target = DeltasPerField.newBarData(`${this.findColumnName(field)} Changes`);
-            DeltasPerField.map(dictionary[field], target);
-            toReturn.push(target);
+            let target = DeltasToFieldChartDatas.newBarData(`${this.findColumnName(field)} Changes`);
+            DeltasToFieldChartDatas.map(dictionary[field], target);
+            toReturn.push(new LinearChartDataContainer(field, target));
         }
 
         return toReturn;

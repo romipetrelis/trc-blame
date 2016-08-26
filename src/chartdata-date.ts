@@ -1,16 +1,16 @@
 /// <reference path="../typings/globals/chart.js/index.d.ts" />
 import * as trc from "trclib/trc2";
 
-export class DeltasPerDate {
+export class DeltasToDateChartData {
 
     static transform(deltas:trc.IDeltaInfo[]):LinearChartData {
-        let dictionary = deltas.reduce(DeltasPerDate.pivot, {}),
+        let dictionary = deltas.reduce(DeltasToDateChartData.pivot, {}),
             barData:LinearChartData = {"labels":[], "datasets":[{
                 "label": "Deltas by Date",
                 "data":[]
             }]};
         
-        DeltasPerDate.map(dictionary, barData);
+        DeltasToDateChartData.map(dictionary, barData);
 
         return barData;
     }
@@ -24,7 +24,7 @@ export class DeltasPerDate {
     }
 
     private static pivot(previous:any, current:any):any {
-        var x = DeltasPerDate.determineXValue(current);
+        var x = DeltasToDateChartData.determineXValue(current);
 
         if (!previous[x]) {
         previous[x] = 1;
