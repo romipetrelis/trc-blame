@@ -27,9 +27,70 @@
         };
     }
 </script>
-<!-- added "local-debug.js" to project so I could modify it to pass "options" -->
-<script src="local-debug.js"></script>
 <!--<script src="https://trcanvasdata.blob.core.windows.net/code2/plugin.js"></script>-->
+<!-- copied from "plugin.js" so I could modify it to pass "options" -->
+<script>
+    function LocalDebug() {
+    $(function () {
+        var elemDiv = document.createElement('div');
+        elemDiv.innerHTML =
+            '<div id="__debug_banner" style="background-color:lightyellow; border:dashed">' +
+                '<h2>Self-hosted debugging</h2>' +
+                '<p>View more documenation and samples at <a href="https://github.com/Voter-Science/TRC-API-Samples">https://github.com/Voter-Science/TRC-API-Samples</a></p>' +
+                '<p>Enter your canvas code:</p>' +
+                '<table>' +
+                '<tr><td>Login URL</td><td><input size=80 type=text id="LocalDbgloginurl" value="https://trc-login.voter-science.com"/></td></tr>' +
+                '<tr><td>Canvas code:</td><td><input type=text id="LocalDbgcode" placeholder="abc123" value="SGYZC4CH" /></td></tr>' +
+                '</table>' +
+                '<button onclick="LocalDebug_OnClick_AccessCodeAndLoadSheet()" value="Load">Load sheet!</button>' +
+                '</div>';
+        window.document.body.insertBefore(elemDiv, window.document.body.firstChild);
+    });
+}
+function LocalDebug_OnClick_AccessCodeAndLoadSheet() {
+    function _getErrorMsg(error) {
+        try {
+            var p2 = JSON.parse(error.responseText);
+            return "(" + p2.Code + ") " + p2.Message;
+        }
+        catch (err) {
+            return error.responseText;
+        }
+    }
+    function trcPostLogin(loginUrl, canvasCode, successFunc) {
+        var url = loginUrl + "/login/code2";
+        var loginBody = {
+            Code: canvasCode,
+            AppName: "Demo"
+        };
+        $.support.cors = true;
+        $.ajax({
+            url: url,
+            type: 'POST',
+            contentType: "application/json",
+            data: JSON.stringify(loginBody),
+            success: function (sheetRef) {
+                successFunc(sheetRef);
+            },
+            error: function (e1) {
+                var msg = _getErrorMsg(e1);
+                alert("Failed to do initial login at: " + loginUrl + " for code " + canvasCode + ": " + msg);
+            }
+        });
+    }
+    var loginUrl = $("#LocalDbgloginurl").val();
+    var code = $("#LocalDbgcode").val();
+    trcPostLogin(loginUrl, code, function (sheetRef) {
+        $("#__debug_banner").hide();
+        // BEGIN edit
+        var opts = (createOptions && typeof createOptions === "function") ? createOptions() : undefined;
+        // END edit
+        PluginMain(sheetRef, opts);
+    });
+}
+LocalDebug();
+</script>
+
 
 <html lang="en">
 <head>
