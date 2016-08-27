@@ -3,10 +3,8 @@
 <link rel="stylesheet" type="text/css" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
 
 <script src="https://code.jquery.com/jquery-1.11.3.min.js"></script>
-<script src="bundle.js"></script>
-
-<!-- TODO: do we want CDN references to these libraries or should they be included in the bundle? -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.2.1/Chart.min.js"></script>
+<script src="bundle.js"></script>
 
 <script>
     // plugin startup shim
@@ -16,15 +14,22 @@
     var _plugin = null;
     // Well-known entry point, called by hosting infrastructure
     function PluginMain(sheetRef, opts) {
-        _pluginModule.MyPlugin.BrowserEntry(sheetRef, opts, function(plugin) {
+        _pluginModule.Blame.BrowserEntry(sheetRef, opts, function(plugin) {
             _plugin = plugin;
-            // Called when finished loading to show main body
-            $("#prebody").hide();  
-            $("#main2").show();
         });
     }
+
+    function createOptions() {
+        return {
+            "recId": undefined,
+            "gotoUrl": undefined,
+            "container": document.getElementById("blame-container")
+        };
+    }
 </script>
-<script src="https://trcanvasdata.blob.core.windows.net/code2/plugin.js"></script>
+<!-- added "local-debug.js" to project so I could modify it to pass "options" -->
+<script src="local-debug.js"></script>
+<!--<script src="https://trcanvasdata.blob.core.windows.net/code2/plugin.js"></script>-->
 
 <html lang="en">
 <head>
@@ -33,20 +38,7 @@
 </head>
 <body>
     <div class="container">
-        <div id="prebody">
-            Loading...
-        </div>
-        <div id="main2"  style="display:none">
-            <div class="panel panel-default">
-                <div class="panel-heading">
-                    <h3 class="panel-title">Charts</h3>
-                </div>
-                <div id="all-charts" class="panel-body">
-                    <p>Click bars to filter</p>
-                </div>
-            </div>
-        </div>
+        <div id="blame-container"></div>
     </div>
-    
 </body>
 </html>

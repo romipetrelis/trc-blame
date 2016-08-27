@@ -3,25 +3,30 @@
 import * as trc from "trclib/trc2";
 import {Transformer} from "./transformer";
 
-export class MyPlugin {
+export class Blame {
     private sheet:trc.Sheet;
-    private opts:trc.PluginOptionsHelper;
     private viewData:any;
+    private pluginContainer:HTMLElement;
 
-    public constructor(sheet:trc.Sheet, opts:trc.PluginOptionsHelper) {
-        this.sheet = sheet;    
-        this.opts = opts;
+    public constructor(sheet:trc.Sheet, opts:trc.IPluginOptions) {
+        this.sheet = sheet; 
+
+        let optsAsAny = opts as any;
+        if (optsAsAny && optsAsAny["container"]) { 
+            this.pluginContainer = optsAsAny["container"]
+        } else {
+            this.pluginContainer = document.getElementsByTagName("body")[0];
+        }
     }
 
     public static BrowserEntry(
         sheet:trc.ISheetReference,
         opts:trc.IPluginOptions,
-        next:(plugin : MyPlugin) => void 
+        next:(plugin : Blame) => void 
     ):void {
 
         let trcSheet = new trc.Sheet(sheet),
-            options = trc.PluginOptionsHelper.New(opts, trcSheet),
-            plugin = new MyPlugin(trcSheet, options);
+            plugin = new Blame(trcSheet, opts);
         
         trcSheet.getInfo((result:trc.ISheetInfoResult)=> {
             plugin.fetchDeltas(trcSheet, result);
@@ -40,11 +45,14 @@ export class MyPlugin {
         let deltas:trc.IDeltaInfo[] = segment.Results;
         this.viewData = Transformer.transform(deltas);
 
-        let dailyData = MyPlugin.createChartData(this.viewData.dailyEditCounts, "# Edits per Day");
-        let dailyChart = this.createBarChart("changedOnDay", dailyData)
+        let chartsPanel = Blame.addChartsPanel("Charts", this.pluginContainer);
+        let chartsContainer = chartsPanel.querySelector(".panel-body");
+        
+        let dailyData = Blame.createChartData(this.viewData.dailyEditCounts, "# Edits per Day");
+        let dailyChart = this.addBarChart("changedOnDay", dailyData, chartsContainer)
 
-        let userData = MyPlugin.createChartData(this.viewData.userEditCounts, "# Edits per User");
-        let userChart = this.createBarChart("user", userData);
+        let userData = Blame.createChartData(this.viewData.userEditCounts, "# Edits per User");
+        let userChart = this.addBarChart("user", userData, chartsContainer);
         
         let fields = this.viewData.columnValueCounts;
 
@@ -52,32 +60,35 @@ export class MyPlugin {
         for(let field in fields) {
             if (skip.indexOf(field)>-1) continue;
 
-            let fieldData = MyPlugin.createChartData(fields[field], field);
-            let fieldChart = this.createBarChart(field, fieldData);
+            let fieldData = Blame.createChartData(fields[field], field);
+            let fieldChart = this.addBarChart(field, fieldData, chartsContainer);
         }
 
-        let recordsTable = this.createRecordsGrid(sheetInfo);
-        
-        let gridPanel = document.createElement("div");
-        gridPanel.className = "panel panel-default";
-        let gridPanelHeading = document.createElement("div");
-        gridPanelHeading.className = "panel-heading";
-        gridPanel.appendChild(gridPanelHeading);
-        let gridPanelTitle = document.createElement("h3");
-        gridPanelTitle.className = "panel-title";
-        gridPanelTitle.innerText = "Record Changes";
-        gridPanelHeading.appendChild(gridPanelTitle);
-        let gridPanelBody = document.createElement("div");
-        gridPanelBody.className = "panel-body";
-        gridPanel.appendChild(gridPanelBody);
-        gridPanelBody.appendChild(recordsTable);
-
-        //HACK: attach it where we want it
-        let temp = document.getElementById("main2");
-        temp.appendChild(gridPanel);
+        Blame.addRecordsTable(sheetInfo, this.viewData.records, this.pluginContainer);
     };
 
-    private createRecordsGrid = (sheetInfo:trc.ISheetInfoResult):HTMLTableElement  => {
+    private static addRecordsTable = (sheetInfo:trc.ISheetInfoResult, records:any, parent:Element) => {
+        let recordsTable = Blame.createRecordsTable(sheetInfo, records);
+        
+        let gridPanel = Blame.createPanel("Changed Records");
+        parent.appendChild(gridPanel);
+
+        let gridPanelBody = gridPanel.querySelector(".panel-body");
+        gridPanelBody.appendChild(recordsTable);
+    }
+
+    private static addChartsPanel = (title:string, parent:Element):Element => {
+        let chartsPanel = Blame.createPanel("Charts");
+        let panelBody = chartsPanel.querySelector(".panel-body");
+        let instructions = document.createElement("p");
+        instructions.innerHTML = "Click a bar to filter the Records Table that appears below (wip)";
+        panelBody.appendChild(instructions);
+
+        parent.appendChild(chartsPanel);
+        return chartsPanel;
+    }
+
+    private static createRecordsTable = (sheetInfo:trc.ISheetInfoResult, records:any):HTMLTableElement  => {
         let table = document.createElement("table");
         table.className = "table table-striped blame-grid"
         let thead = document.createElement("thead");
@@ -95,8 +106,7 @@ export class MyPlugin {
         }
         let tbody = document.createElement("tbody");
         table.appendChild(tbody);
-        for(let recId in this.viewData.records) {
-            //TODO: create a row and add the cells
+        for(let recId in records) {
             let tr = document.createElement("tr");
             
             for(let columnName of columnNames) {
@@ -104,12 +114,11 @@ export class MyPlugin {
                 if (columnName == "RecId") {
                     td.innerText = recId;
                 } else {
-                    let cell = this.viewData.records[recId][columnName];
+                    let cell = records[recId][columnName];
                     if (cell) td.innerText = cell.currentValue;
                 }
                 tr.appendChild(td);
             }
-
             tbody.appendChild(tr);
         }
 
@@ -127,9 +136,8 @@ export class MyPlugin {
         return toReturn;
     }
 
-    private createBarChart = (name:string, data:LinearChartData):void => {
-
-        MyPlugin.addColor(data.datasets[0]);
+    private addBarChart = (name:string, data:LinearChartData, parent:Element):void => {
+        Blame.addColor(data.datasets[0]);
 
         let options:ChartOptions = {
             responsive: true,
@@ -144,7 +152,7 @@ export class MyPlugin {
         };
         
         let canvas = document.createElement("canvas");
-        this.handleCanvasCreated(canvas);
+        Blame.handleCanvasCreated(canvas, parent);
         
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
@@ -155,7 +163,7 @@ export class MyPlugin {
     private static addColor(target:ChartDataSets):void {
         let colors:Array<string> = new Array<string>();
         for(let i=0; i< target.data.length; i++) {
-            colors.push(MyPlugin.randomColor());
+            colors.push(Blame.randomColor());
         }
         target.backgroundColor = colors;
     }
@@ -164,15 +172,29 @@ export class MyPlugin {
         return "#" + Math.random().toString(16).slice(2, 8);
     }
 
-    private handleCanvasCreated = (canvas:HTMLCanvasElement) => {
+    private static handleCanvasCreated = (canvas:HTMLCanvasElement, parent:Element) => {
         let chartDiv = document.createElement("div");
         chartDiv.className = "col-xs-12 col-md-6";
         chartDiv.appendChild(canvas);
 
-        //TODO: require the plugin-consumer to pass in a 'container' element. 
-        //we'll then put the panel stuff in that and create an "inner" container in the panel-body
-        let allCharts = document.getElementById("all-charts");
-        allCharts.appendChild(chartDiv);
+        parent.appendChild(chartDiv);
+    }
+
+    private static createPanel(title?:string):HTMLDivElement {
+        let panel = document.createElement("div");
+        panel.className = "panel panel-default";
+        let panelHeading = document.createElement("div");
+        panelHeading.className = "panel-heading";
+        panel.appendChild(panelHeading);
+        let panelTitle = document.createElement("h3");
+        panelTitle.className = "panel-title";
+        panelTitle.innerText = title;
+        panelHeading.appendChild(panelTitle);
+        let panelBody = document.createElement("div");
+        panelBody.className = "panel-body";
+        panel.appendChild(panelBody);
+
+        return panel;
     }
 
     private handleChartCreated = (name:string, chart:{}, canvas:HTMLCanvasElement) => {
