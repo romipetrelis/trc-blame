@@ -1,4 +1,5 @@
 import * as trc from "trclib/trc2";
+import * as moment from "moment";
 
 export class Transformer {
 
@@ -95,9 +96,6 @@ export class Transformer {
     }
 
     private static toDayString(dateValue:Date) {
-        var theYear = dateValue.getFullYear(),
-            theMonth = dateValue.getMonth() + 1,
-            theDay = dateValue.getDate();
-        return `${theYear}-${theMonth}-${theDay}`;
+        return moment(dateValue).format("YYYY-MM-DD");
     }
 }
