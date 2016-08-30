@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "chart.js": "^2.2.1",
+    "moment": "^2.14.1",
     "trclib": "^1.0.5"
   }
 }
