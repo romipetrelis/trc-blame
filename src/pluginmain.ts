@@ -1,14 +1,19 @@
 /// <reference path="../typings/globals/chart.js/index.d.ts" />
+/// <reference path="../MicrosoftMaps/Microsoft.Maps.all.d.ts" />
 
 import * as trc from "trclib/trc2";
 import {Transformer} from "./transformer";
 import * as moment from "moment";
+
+declare var $:any;
 
 export class Blame {
     private deltas:trc.IDeltaInfo[];
     private pluginContainer:HTMLElement;
     private filters:any;
     private sheetInfo:trc.ISheetInfoResult;
+    private static MAPS_KEY:string = "AmBV66zGTINWZ54KsOnI82saGwMtUEK1LHAq2vdj32S7N6wnb891uclFsdnIFpNx";
+    private static CHANGE_HISTORY_MODAL:string = "blame-changes-modal";
 
     public constructor(sheet:trc.Sheet, container:HTMLElement) {
         this.pluginContainer = container;
@@ -53,19 +58,36 @@ export class Blame {
         this.bind(filteredDeltas);
     };
 
-    private  init = (parent:Element, filters:any) => {
+    private static removeChildren = (parent:Element):void => {
         while (parent.firstChild) {
             parent.removeChild(parent.firstChild);
         }
+    }
+
+    private  init = (parent:Element, filters:any) => {
+        Blame.removeChildren(parent);
 
         let panel = Blame.createPanel("Filters");
         parent.appendChild(panel);
         let panelBody = panel.querySelector(".panel-body");
 
+        let timestampForm = this.createTimestampForm(filters);
+        panelBody.appendChild(timestampForm);
+
+        let hr = document.createElement("hr");
+        panelBody.appendChild(hr);
+        
+        let filterControl = Blame.createFilterControl(filters);
+        panelBody.appendChild(filterControl);
+
+        let changesModal = Blame.createModal(Blame.CHANGE_HISTORY_MODAL, "Change History");
+        parent.appendChild(changesModal);
+    };
+
+    private createTimestampForm = (filters:any):HTMLElement => {
         let inlineWrapper = document.createElement("div");
         inlineWrapper.className = "form-inline";
-        panelBody.appendChild(inlineWrapper);
-
+        
         let startDateGroup = Blame.addFormGroup(inlineWrapper, "start-date", "From", "date", undefined, filters.startDate);
         let endDateGroup = Blame.addFormGroup(inlineWrapper, "end-date", "To", "date", undefined, filters.endDate);
         let filterButton = document.createElement("button");
@@ -77,14 +99,17 @@ export class Blame {
         span.setAttribute("aria-hidden", "true");
         filterButton.appendChild(span);
         filterButton.addEventListener("click", (e:any)=> {
-            let startDateInput = this.pluginContainer.querySelector("#start-date") as HTMLInputElement;
-            this.filters.startDate = startDateInput.value;
-            let endDateInput = this.pluginContainer.querySelector("#end-date") as HTMLInputElement;
-            this.filters.endDate = endDateInput.value;
+            let startDateInput = inlineWrapper.querySelector("#start-date") as HTMLInputElement;
+            filters.startDate = startDateInput.value;
+            let endDateInput = inlineWrapper.querySelector("#end-date") as HTMLInputElement;
+            filters.endDate = endDateInput.value;
             this.render();
         });
         inlineWrapper.appendChild(filterButton);
-        
+        return inlineWrapper;
+    }
+
+    private static createFilterControl = (filters:any):HTMLElement => {
         let filterLabels = new Array<string>();
         if (filters.changedOnDay) {
             filterLabels.push(`Changed On = ${filters.changedOnDay}`);
@@ -105,10 +130,12 @@ export class Blame {
             filterLabels.push(`${c.name} = ${c.value}`);
         }
 
-        let filterWell = document.createElement("p");
+        let filterWell = document.createElement("div");
+        filterWell.className = "well";
         filterWell.innerText = filterLabels.join(" & ");
-        panelBody.appendChild(filterWell);
-    };
+
+        return filterWell;
+    }
 
     private static filterDeltas = (source:trc.IDeltaInfo[], filters:any):trc.IDeltaInfo[] => {
         return source.filter((value:trc.IDeltaInfo):boolean => {
@@ -161,7 +188,7 @@ export class Blame {
         let chartsContainer = chartsPanel.querySelector(".panel-body");
         
         let dailyData = Blame.createChartData(viewData.dailyEditCounts, "# Edits per Day");
-        let dailyChart = this.addBarChart("changedOnDay", dailyData, chartsContainer)
+        let dailyChart = this.addLineChart("changedOnDay", dailyData, chartsContainer)
 
         let userData = Blame.createChartData(viewData.userEditCounts, "# Edits per User");
         let userChart = this.addBarChart("user", userData, chartsContainer);
@@ -176,7 +203,37 @@ export class Blame {
             let fieldChart = this.addBarChart(field, fieldData, chartsContainer);
         }
 
+        Blame.addMap(this.pluginContainer, viewData.locations);
+
         Blame.addRecordsTable(this.sheetInfo, viewData.records, this.pluginContainer);
+    }
+
+    private static addMap = (parent:Element, locations:any) => {
+        let panel = Blame.createPanel("Map");
+        parent.appendChild(panel);
+        let panelBody = panel.querySelector(".panel-body");
+
+        let mapDiv = Blame.createMapDiv();
+        panelBody.appendChild(mapDiv);
+
+        let map = new Microsoft.Maps.Map(mapDiv, {
+            "credentials": Blame.MAPS_KEY,
+            "center": Blame.determineMapCenter(locations)
+        });
+
+        for(let key in locations) {
+            let locationInfo = locations[key];
+            let pushpin = new Microsoft.Maps.Pushpin(new Microsoft.Maps.Location(locationInfo.coords.geoLat, locationInfo.coords.geoLong));
+            map.entities.push(pushpin);
+        }
+    }
+
+    private static determineMapCenter = (locations:any):Microsoft.Maps.Location => {
+        if (!locations || Object.keys(locations).length === 0) return undefined;
+        let locationKey = Object.keys(locations)[0];
+        let c = locations[locationKey].coords;
+        if (!c) return undefined;
+        return new Microsoft.Maps.Location(c.geoLat, c.geoLong);
     }
 
     private static addRecordsTable = (sheetInfo:trc.ISheetInfoResult, records:any, parent:Element) => {
@@ -193,7 +250,7 @@ export class Blame {
         let chartsPanel = Blame.createPanel("Charts");
         let panelBody = chartsPanel.querySelector(".panel-body");
         let instructions = document.createElement("p");
-        instructions.innerHTML = "Click a bar to filter the Records Table that appears below (wip)";
+        instructions.innerHTML = "Click the charts to apply filters";
         panelBody.appendChild(instructions);
 
         parent.appendChild(chartsPanel);
@@ -202,7 +259,7 @@ export class Blame {
 
     private static createRecordsTable = (sheetInfo:trc.ISheetInfoResult, records:any):HTMLTableElement  => {
         let table = document.createElement("table");
-        table.className = "table table-striped blame-grid"
+        table.className = "table table-striped"
         let thead = document.createElement("thead");
         table.appendChild(thead);
         let header = document.createElement("tr");
@@ -227,7 +284,26 @@ export class Blame {
                     td.innerText = recId;
                 } else {
                     let cell = records[recId][columnName];
-                    if (cell) td.innerText = cell.currentValue;
+                    if (cell) { 
+                        td.innerHTML = cell.currentValue;
+                        if (cell.changeHistoryCount > 1) {
+                            let changes = document.createElement("button");
+                            changes.type = "button";
+                            changes.innerHTML = ` (${cell.changeHistoryCount-1} &#916;${cell.changeHistoryCount>2 ? 's' : ''})`;
+                            changes.className = "small btn-link";
+                            changes.addEventListener("click", (e:MouseEvent) => {
+                                let modal = document.querySelector(`.${Blame.CHANGE_HISTORY_MODAL}`); //TODO: select from this.pluginContainer
+                                let modalBody = modal.querySelector(".modal-body");
+                                let modalTitle = modal.querySelector(".modal-title");
+                                modalTitle.innerHTML = `${columnName} &#916;s on ${recId}`
+                                Blame.removeChildren(modalBody);
+                                let changesTable = Blame.createChangesTable(cell.changeHistory);
+                                modalBody.appendChild(changesTable);
+                                $(`.${Blame.CHANGE_HISTORY_MODAL}`).modal();
+                            });
+                            td.appendChild(changes);
+                        }
+                    }
                 }
                 tr.appendChild(td);
             }
@@ -269,7 +345,29 @@ export class Blame {
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
 
-        this.handleChartCreated(name, chart, canvas);
+        this.handleBarChartCreated(name, chart, canvas);
+    }
+
+    private addLineChart = (name:string, data:LinearChartData, parent:Element):void => {
+        let options:ChartOptions = {
+            responsive: true,
+            maintainAspectRatio:true,
+            onClick: undefined
+        };
+
+        let chartConfig:ChartConfiguration = {
+            type: "line",
+            data: data,
+            options: options
+        };
+        
+        let canvas = document.createElement("canvas");
+        Blame.handleCanvasCreated(canvas, parent);
+        
+        let ctx = canvas.getContext("2d");
+        let chart = new Chart(ctx, chartConfig);
+
+        this.handleLineChartCreated(name, chart, canvas);
     }
 
     private static addColor(target:ChartDataSets):void {
@@ -309,9 +407,10 @@ export class Blame {
         return panel;
     }
 
-    private handleChartCreated = (name:string, chart:{}, canvas:HTMLCanvasElement) => {
+    private handleBarChartCreated = (name:string, chart:{}, canvas:HTMLCanvasElement) => {
         let clickHandler = (aChart:any) => {return (e:any)=> {
             let a = aChart.getElementAtEvent(e);
+            
             if (a && a.length > 0) {
                 let model = a[0]._model;
                 if (name in this.filters) {
@@ -324,5 +423,114 @@ export class Blame {
         }};
 
         canvas.onclick = clickHandler(chart);
+    }
+
+    private handleLineChartCreated = (name:string, chart:{}, canvas:HTMLCanvasElement) => {
+        let clickHandler = (aChart:any) => {return (e:any)=> {
+            let a = aChart.getElementsAtEvent(e);
+            if (a && a.length > 0) {
+                let index = a[0]._index;
+                let value = a[0]._chart.config.data.labels[index];
+                if (name in this.filters) {
+                    this.filters[name] = value;
+                } else {
+                    this.filters.columns.push({ "name": name, "value": value});
+                }
+                this.render();
+            }
+        }};
+
+        canvas.onclick = clickHandler(chart);
+    }
+
+    private static createMapDiv = ():HTMLDivElement => {
+        let div = document.createElement("div");
+        div.style.position = "relative";
+        div.style.width = "600px";
+        div.style.height = "400px";
+        return div;
+    }
+
+    private static createModal = (classId:string, title?:string):HTMLDivElement => {
+        let modal = document.createElement("div");
+        modal.className = `modal fade ${classId}`;
+        modal.setAttribute("tabindex", "-1");
+        modal.setAttribute("role", "dialog");
+        let dialog = document.createElement("div");
+        dialog.className = "modal-dialog";
+        dialog.setAttribute("role", "document");
+        modal.appendChild(dialog);
+        let content = document.createElement("div");
+        content.className = "modal-content";
+        dialog.appendChild(content);
+        let header = document.createElement("div");
+        header.className = "modal-header";
+        content.appendChild(header);
+        let dismiss = document.createElement("button");        
+        dismiss.type = "button";
+        dismiss.className = "close";
+        dismiss.setAttribute("data-dismiss", "modal");
+        dismiss.setAttribute("aria-label", "Close");
+        header.appendChild(dismiss);
+        let dismissIcon = document.createElement("span");
+        dismissIcon.innerHTML = "&times;";
+        dismiss.appendChild(dismissIcon);
+        let h4 = document.createElement("h4");
+        h4.className = "modal-title";
+        h4.innerHTML = title;
+        header.appendChild(h4);
+        let body = document.createElement("div");
+        body.className = "modal-body";
+        content.appendChild(body);
+        let footer = document.createElement("div");
+        footer.className = "modal-footer";
+        content.appendChild(footer);
+        let closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "btn btn-default";
+        closeButton.setAttribute("data-dismiss", "modal");
+        closeButton.innerHTML = "Close";
+        footer.appendChild(closeButton);
+
+        return modal;
+    }
+
+    private static createChangesTable = (changes:Array<any>):HTMLTableElement => {
+        let table = document.createElement("table");
+        table.className = "table table-striped"
+        let thead = document.createElement("thead");
+        table.appendChild(thead);
+        let header = document.createElement("tr");
+        thead.appendChild(header);
+        let columnNames = ["Version", "By", "On", "Value"];
+        for(let columnName of columnNames) {
+            let th = document.createElement("th")
+            th.innerHTML = columnName;
+            header.appendChild(th);
+        }
+        let tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+
+        let attachCell = (parent:Element, text:string) => {
+            let td = document.createElement("td");
+            td.innerHTML = text;
+            parent.appendChild(td);
+            return td;
+        }
+
+        //reverse the order of the changes (which come in ascending order)
+        let copyOfChanges = [...changes];
+        copyOfChanges.reverse();
+
+        for(let change of copyOfChanges) {
+            let tr = document.createElement("tr");
+            tbody.appendChild(tr);
+            attachCell(tr, change.version);
+            attachCell(tr, change.user);
+            attachCell(tr, moment(change.changedOn).format("ddd, MMM D, YYYY h:mm a"));
+            attachCell(tr, change.value);
+        }
+
+        return table;
     }
 }
