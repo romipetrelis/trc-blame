@@ -6,6 +6,7 @@ import {Transformer} from "./transformer";
 import * as moment from "moment";
 
 declare var $:any;
+declare var noUiSlider:any;
 
 export class Blame {
     private deltas:trc.IDeltaInfo[];
@@ -14,6 +15,8 @@ export class Blame {
     private sheetInfo:trc.ISheetInfoResult;
     private static MAPS_KEY:string = "AmBV66zGTINWZ54KsOnI82saGwMtUEK1LHAq2vdj32S7N6wnb891uclFsdnIFpNx";
     private static CHANGE_HISTORY_MODAL:string = "blame-changes-modal";
+    private minTimestamp:Date;
+    private maxTimestamp:Date;
 
     public constructor(sheet:trc.Sheet, container:HTMLElement) {
         this.pluginContainer = container;
@@ -47,7 +50,11 @@ export class Blame {
     private fetchDeltas = (sheet:trc.Sheet):void => {
         sheet.getDeltas((segment)=> {
             this.deltas = segment.Results;
+            
+            this.minTimestamp = this.deltas.length > 0 ? new Date(this.deltas[0].Timestamp) : new Date();
+            this.maxTimestamp = new Date();
             this.filters.startDate = this.deltas.length > 0 ? moment(this.deltas[0].Timestamp).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD");
+
             this.render();
         });
     };
@@ -80,9 +87,29 @@ export class Blame {
         let filterControl = Blame.createFilterControl(filters);
         panelBody.appendChild(filterControl);
 
+        // let slider = Blame.createDateSlider(this.minTimestamp, this.maxTimestamp, this.filters.startDate, this.filters.endDate);
+        // panelBody.appendChild(slider);
+
         let changesModal = Blame.createModal(Blame.CHANGE_HISTORY_MODAL, "Change History");
         parent.appendChild(changesModal);
     };
+
+    private static createDateSlider = (min:Date, max:Date, start:string, end:string):HTMLDivElement => {
+        let slider = document.createElement("div");
+        noUiSlider.create(slider, {
+            range: { min: min.getTime(), max: max.getTime()},
+            start: [ moment(start).toDate().getTime(), moment(end).toDate().getTime()],
+            // Steps of one week
+            step: 7 * 24 * 60 * 60 * 1000
+        });
+
+        let dateSlider:any = slider as any;
+        dateSlider.noUiSlider.on("update", (values:any, handle:any) => {
+           console.log(values);
+           console.log(handle); 
+        });
+        return slider;
+    }
 
     private createTimestampForm = (filters:any):HTMLElement => {
         let inlineWrapper = document.createElement("div");
