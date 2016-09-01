@@ -17,6 +17,7 @@ export class Blame {
     private static CHANGE_HISTORY_MODAL:string = "blame-changes-modal";
     private minTimestamp:Date;
     private maxTimestamp:Date;
+    private isInitialized:boolean;
 
     public constructor(sheet:trc.Sheet, container:HTMLElement) {
         this.pluginContainer = container;
@@ -50,10 +51,14 @@ export class Blame {
     private fetchDeltas = (sheet:trc.Sheet):void => {
         sheet.getDeltas((segment)=> {
             this.deltas = segment.Results;
+
+            let startMoment = moment(this.deltas.length > 0 ? this.deltas[0].Timestamp : new Date()).startOf("month");
+            let endMoment = moment().endOf("month");
             
-            this.minTimestamp = this.deltas.length > 0 ? new Date(this.deltas[0].Timestamp) : new Date();
-            this.maxTimestamp = new Date();
-            this.filters.startDate = this.deltas.length > 0 ? moment(this.deltas[0].Timestamp).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD");
+            this.minTimestamp = startMoment.toDate();
+            this.maxTimestamp = endMoment.toDate();
+            this.filters.startDate = Blame.formatDateForFilter(this.minTimestamp);
+            this.filters.endDate = Blame.formatDateForFilter(this.maxTimestamp);
 
             this.render();
         });
@@ -72,82 +77,84 @@ export class Blame {
     }
 
     private  init = (parent:Element, filters:any) => {
+        this.isInitialized = false;
         Blame.removeChildren(parent);
 
         let panel = Blame.createPanel("Filters");
         parent.appendChild(panel);
         let panelBody = panel.querySelector(".panel-body");
-
-        let timestampForm = this.createTimestampForm(filters);
-        panelBody.appendChild(timestampForm);
-
-        let hr = document.createElement("hr");
-        panelBody.appendChild(hr);
         
         let filterControl = Blame.createFilterControl(filters);
         panelBody.appendChild(filterControl);
 
-        // let slider = Blame.createDateSlider(this.minTimestamp, this.maxTimestamp, this.filters.startDate, this.filters.endDate);
-        // panelBody.appendChild(slider);
+        let slider = this.createDateSlider();
+        panelBody.appendChild(slider);
 
         let changesModal = Blame.createModal(Blame.CHANGE_HISTORY_MODAL, "Change History");
         parent.appendChild(changesModal);
+        this.isInitialized = true;
     };
 
-    private static createDateSlider = (min:Date, max:Date, start:string, end:string):HTMLDivElement => {
+    private static formatDateForFilter = (value:Date):string => {
+        return moment(value).format("YYYY-MM-DD");
+    }
+
+    private handleSliderChange = (start:Date, end:Date) => {
+        this.filters.startDate = Blame.formatDateForFilter(start);
+        this.filters.endDate = Blame.formatDateForFilter(end);
+        this.render();
+    };
+
+    private createDateSlider = ():HTMLDivElement => {
+        let container = document.createElement("div");
         let slider = document.createElement("div");
+        container.appendChild(slider);
+        let row = document.createElement("div");
+        row.className = "row";
+        container.appendChild(row);
+        let startValueLabel = document.createElement("div");
+        startValueLabel.className = "col-md-3";
+        row.appendChild(startValueLabel);
+        let spacer = document.createElement("div");
+        spacer.className = "col-md-6";
+        row.appendChild(spacer);
+        let endValueLabel = document.createElement("div");
+        endValueLabel.className = "col-md-3 text-right";
+        row.appendChild(endValueLabel);
+        let valueLabels = [startValueLabel, endValueLabel];
+
         noUiSlider.create(slider, {
-            range: { min: min.getTime(), max: max.getTime()},
-            start: [ moment(start).toDate().getTime(), moment(end).toDate().getTime()],
-            // Steps of one week
-            step: 7 * 24 * 60 * 60 * 1000
+            range: { min: this.minTimestamp.getTime(), max: this.maxTimestamp.getTime()},
+            start: [ moment(this.filters.startDate).toDate().getTime(), moment(this.filters.endDate).toDate().getTime()],
+            // Steps of one day
+            step: 1 * 24 * 60 * 60 * 1000
         });
 
         let dateSlider:any = slider as any;
         dateSlider.noUiSlider.on("update", (values:any, handle:any) => {
-           console.log(values);
-           console.log(handle); 
+            let value = values[handle];
+            let labelText = (moment(new Date(+value)).format("MMM D, YYYY"));
+            valueLabels[handle].innerHTML = labelText;
         });
-        return slider;
-    }
 
-    private createTimestampForm = (filters:any):HTMLElement => {
-        let inlineWrapper = document.createElement("div");
-        inlineWrapper.className = "form-inline";
-        
-        let startDateGroup = Blame.addFormGroup(inlineWrapper, "start-date", "From", "date", undefined, filters.startDate);
-        let endDateGroup = Blame.addFormGroup(inlineWrapper, "end-date", "To", "date", undefined, filters.endDate);
-        let filterButton = document.createElement("button");
-        filterButton.className = "btn btn-default";
-        filterButton.setAttribute("aria-label", "Filter");
-        filterButton.type = "button";
-        let span = document.createElement("span");
-        span.className = "glyphicon glyphicon-filter";
-        span.setAttribute("aria-hidden", "true");
-        filterButton.appendChild(span);
-        filterButton.addEventListener("click", (e:any)=> {
-            let startDateInput = inlineWrapper.querySelector("#start-date") as HTMLInputElement;
-            filters.startDate = startDateInput.value;
-            let endDateInput = inlineWrapper.querySelector("#end-date") as HTMLInputElement;
-            filters.endDate = endDateInput.value;
-            this.render();
+        dateSlider.noUiSlider.on("change", (values:any, handle:any) => {
+
+            let start = new Date(+values[0]);
+            let end = new Date(+values[1]);    
+
+            this.handleSliderChange(start, end);
         });
-        inlineWrapper.appendChild(filterButton);
-        return inlineWrapper;
+        return container;
     }
 
     private static createFilterControl = (filters:any):HTMLElement => {
         let filterLabels = new Array<string>();
         if (filters.changedOnDay) {
-            filterLabels.push(`Changed On = ${filters.changedOnDay}`);
+            filterLabels.push(`Changed on = ${filters.changedOnDay}`);
         } else {
-            if (filters.startDate) {
-                filterLabels.push(`Start Date >= ${filters.startDate}`);
-            }
-            if (filters.endDate) {
-                filterLabels.push(`End Date >= ${filters.endDate}`);
-            }
+            filterLabels.push(`Changed between ${filters.startDate} and ${filters.endDate}`);
         }
+
         if (filters.user) {
             filterLabels.push(`User = ${filters.user}`);
         }
@@ -186,7 +193,7 @@ export class Blame {
             }
 
             return true;
-        })
+        });
     }
 
     private static addFormGroup = (parent:Element, name:string, labelText:string, inputType?:string, placeholder?:any, value?:any):HTMLDivElement => {
@@ -208,7 +215,7 @@ export class Blame {
         return formGroup;
     }
 
-    private bind(deltas:trc.IDeltaInfo[]):void {
+    private bind = (deltas:trc.IDeltaInfo[]):void => {
         let viewData = Transformer.transform(deltas);
 
         let chartsPanel = Blame.addChartsPanel("Charts", this.pluginContainer);
@@ -397,7 +404,7 @@ export class Blame {
         this.handleLineChartCreated(name, chart, canvas);
     }
 
-    private static addColor(target:ChartDataSets):void {
+    private static addColor = (target:ChartDataSets):void => {
         let colors:Array<string> = new Array<string>();
         for(let i=0; i< target.data.length; i++) {
             colors.push(Blame.randomColor());
@@ -405,7 +412,7 @@ export class Blame {
         target.backgroundColor = colors;
     }
 
-    private static randomColor():string {
+    private static randomColor = ():string => {
         return "#" + Math.random().toString(16).slice(2, 8);
     }
 
@@ -417,7 +424,7 @@ export class Blame {
         parent.appendChild(chartDiv);
     }
 
-    private static createPanel(title?:string):HTMLDivElement {
+    private static createPanel = (title?:string):HTMLDivElement => {
         let panel = document.createElement("div");
         panel.className = "panel panel-default";
         let panelHeading = document.createElement("div");
