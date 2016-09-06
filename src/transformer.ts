@@ -23,6 +23,8 @@ export class Transformer {
         
         if (!previous.records[recId]) previous.records[recId] = {};
         var thisRecord = previous.records[recId];
+        thisRecord["xLastUser"] = thisDelta.User;
+        thisRecord["xLastTimestamp"] = thisDelta.Timestamp;
         
         if (!previous.userEditCounts[thisDelta.User]) previous.userEditCounts[thisDelta.User] = 0; 
         var userEditCounts = previous.userEditCounts;
@@ -46,9 +48,10 @@ export class Transformer {
             
             if (!thisRecord[columnName]) {
                 thisRecord[columnName] = {
-                    "currentValue": "",                
+                    "currentValue": "",             
                     "changeHistory": [],
-                    "changeHistoryCount": 0
+                    "changeHistoryCount": 0,
+                    "uniqueEditors": {}
                 }
             }
             
@@ -59,6 +62,8 @@ export class Transformer {
             let historyItem = Transformer.toHistoryItem(thisDelta, columnValue, deltaDayString);
             thisRecord[columnName].changeHistory.push(historyItem);
             thisRecord[columnName]["changeHistoryCount"]++;
+            if (!thisRecord[columnName]["uniqueEditors"][thisDelta.User]) {thisRecord[columnName]["uniqueEditors"][thisDelta.User] = 0;}
+            thisRecord[columnName]["uniqueEditors"][thisDelta.User]++;
             
             // update user edit counter
             userEditCounts[thisDelta.User]++;

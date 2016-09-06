@@ -84,11 +84,11 @@ export class Blame {
         parent.appendChild(panel);
         let panelBody = panel.querySelector(".panel-body");
         
-        let filterControl = Blame.createFilterControl(filters);
+        let filterControl = this.createFilterControl();
         panelBody.appendChild(filterControl);
 
-        let slider = this.createDateSlider();
-        panelBody.appendChild(slider);
+        // let slider = this.createDateSlider();
+        // panelBody.appendChild(slider);
 
         let changesModal = Blame.createModal(Blame.CHANGE_HISTORY_MODAL, "Change History");
         parent.appendChild(changesModal);
@@ -110,7 +110,8 @@ export class Blame {
         let slider = document.createElement("div");
         container.appendChild(slider);
         let row = document.createElement("div");
-        row.className = "row";
+        row.className = "row small";
+        row.innerHTML = "<br/>";
         container.appendChild(row);
         let startValueLabel = document.createElement("div");
         startValueLabel.className = "col-md-3";
@@ -147,28 +148,43 @@ export class Blame {
         return container;
     }
 
-    private static createFilterControl = (filters:any):HTMLElement => {
+    private createFilterControl = ():HTMLElement => {
         let filterLabels = new Array<string>();
-        if (filters.changedOnDay) {
-            filterLabels.push(`Changed on = ${filters.changedOnDay}`);
+        if (this.filters.changedOnDay) {
+            filterLabels.push(`Changed on = ${this.filters.changedOnDay}`);
         } else {
-            filterLabels.push(`Changed between ${filters.startDate} and ${filters.endDate}`);
+            filterLabels.push(`Changed between ${this.filters.startDate} and ${this.filters.endDate}`);
         }
 
-        if (filters.user) {
-            filterLabels.push(`User = ${filters.user}`);
+        if (this.filters.user) {
+            filterLabels.push(`User = ${this.filters.user}`);
         }
 
-        for(let column of filters.columns) {
+        for(let column of this.filters.columns) {
             let c:any = column as any;
             filterLabels.push(`${c.name} = ${c.value}`);
         }
 
         let filterWell = document.createElement("div");
         filterWell.className = "well";
-        filterWell.innerText = filterLabels.join(" & ");
+        filterWell.innerHTML = filterLabels.join(" & ") + " ";
 
+        let resetButton = document.createElement("button");
+        resetButton.innerHTML = "Reset";
+        resetButton.addEventListener("click", this.handleReset);
+        resetButton.className = "btn btn-primary"
+        filterWell.appendChild(resetButton);
+  
         return filterWell;
+    }
+
+    private handleReset = ():void => {
+        delete this.filters["changedOnDay"];
+        this.filters.startDate = Blame.formatDateForFilter(this.minTimestamp);
+        this.filters.endDate = Blame.formatDateForFilter(this.maxTimestamp);
+        delete this.filters["user"];
+        this.filters.columns = [];
+        this.render();
     }
 
     private static filterDeltas = (source:trc.IDeltaInfo[], filters:any):trc.IDeltaInfo[] => {
@@ -220,12 +236,19 @@ export class Blame {
 
         let chartsPanel = Blame.addChartsPanel("Charts", this.pluginContainer);
         let chartsContainer = chartsPanel.querySelector(".panel-body");
-        
+
+        let row1 = document.createElement("div");
+        row1.className = "row";
+        chartsContainer.appendChild(row1);
+
         let dailyData = Blame.createChartData(viewData.dailyEditCounts, "# Edits per Day");
-        let dailyChart = this.addLineChart("changedOnDay", dailyData, chartsContainer)
+        let dailyChart = this.addLineChart("changedOnDay", dailyData, row1, (div:HTMLDivElement)=> {
+            let slider = this.createDateSlider();
+            div.appendChild(slider);
+        });
 
         let userData = Blame.createChartData(viewData.userEditCounts, "# Edits per User");
-        let userChart = this.addBarChart("user", userData, chartsContainer);
+        let userChart = this.addBarChart("user", userData, row1);
         
         let fields = viewData.columnValueCounts;
 
@@ -273,7 +296,7 @@ export class Blame {
     private static addRecordsTable = (sheetInfo:trc.ISheetInfoResult, records:any, parent:Element) => {
         let recordsTable = Blame.createRecordsTable(sheetInfo, records);
         
-        let gridPanel = Blame.createPanel("Changed Records");
+        let gridPanel = Blame.createPanel(`Changed Records (${Object.keys(records).length} results)`);
         parent.appendChild(gridPanel);
 
         let gridPanelBody = gridPanel.querySelector(".panel-body");
@@ -304,9 +327,16 @@ export class Blame {
             columnNames.push(colDef.Name);
 
             let th = document.createElement("th")
-            th.innerText = colDef.DisplayName;
+            th.innerHTML = colDef.DisplayName;
             header.appendChild(th);
         }
+        let xLastUserTh = document.createElement("th");
+        xLastUserTh.innerHTML = "Last Changed By";
+        header.appendChild(xLastUserTh);
+        let xLastTimestampTh = document.createElement("th");
+        xLastTimestampTh.innerHTML = "Last Changed On";
+        header.appendChild(xLastTimestampTh);
+
         let tbody = document.createElement("tbody");
         table.appendChild(tbody);
         for(let recId in records) {
@@ -315,7 +345,7 @@ export class Blame {
             for(let columnName of columnNames) {
                 let td = document.createElement("td");
                 if (columnName == "RecId") {
-                    td.innerText = recId;
+                    td.innerHTML = recId;
                 } else {
                     let cell = records[recId][columnName];
                     if (cell) { 
@@ -337,10 +367,17 @@ export class Blame {
                             });
                             td.appendChild(changes);
                         }
+                        if (Object.keys(cell.uniqueEditors).length > 1) td.className += " danger";
                     }
                 }
                 tr.appendChild(td);
             }
+            let xLastUserTd = document.createElement("td");
+            xLastUserTd.innerHTML = records[recId].xLastUser;
+            tr.appendChild(xLastUserTd);
+            let xLastTimestampTd = document.createElement("td");
+            xLastTimestampTd.innerHTML = moment(records[recId].xLastTimestamp).format("M/D/YYYY h:m a");
+            tr.appendChild(xLastTimestampTd);
             tbody.appendChild(tr);
         }
 
@@ -374,7 +411,7 @@ export class Blame {
         };
         
         let canvas = document.createElement("canvas");
-        Blame.handleCanvasCreated(canvas, parent);
+        Blame.wrapChartInDiv(canvas, parent);
         
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
@@ -382,7 +419,7 @@ export class Blame {
         this.handleBarChartCreated(name, chart, canvas);
     }
 
-    private addLineChart = (name:string, data:LinearChartData, parent:Element):void => {
+    private addLineChart = (name:string, data:LinearChartData, parent:Element, onChartWrappedInDiv?:(div:HTMLDivElement)=>void):void => {
         let options:ChartOptions = {
             responsive: true,
             maintainAspectRatio:true,
@@ -396,7 +433,9 @@ export class Blame {
         };
         
         let canvas = document.createElement("canvas");
-        Blame.handleCanvasCreated(canvas, parent);
+        let div = Blame.wrapChartInDiv(canvas, parent);
+
+        if (onChartWrappedInDiv) onChartWrappedInDiv(div);
         
         let ctx = canvas.getContext("2d");
         let chart = new Chart(ctx, chartConfig);
@@ -416,12 +455,14 @@ export class Blame {
         return "#" + Math.random().toString(16).slice(2, 8);
     }
 
-    private static handleCanvasCreated = (canvas:HTMLCanvasElement, parent:Element) => {
+    private static wrapChartInDiv = (canvas:HTMLCanvasElement, parent:Element):HTMLDivElement => {
         let chartDiv = document.createElement("div");
         chartDiv.className = "col-xs-12 col-md-6";
         chartDiv.appendChild(canvas);
 
         parent.appendChild(chartDiv);
+
+        return chartDiv;
     }
 
     private static createPanel = (title?:string):HTMLDivElement => {
