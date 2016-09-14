@@ -22,20 +22,25 @@ export class DownloadHelper {
                 index++;
             }
 
-            let content = "data:text/csv;charset=utf-8,";
+            let content = "";
+
             grid.forEach((arr, index) => {
                 let row = arr.join(",");
                 content += index < grid.length ? row + "\r\n" : row;                 
             });
 
-            console.log(data);
-
-            let uri = encodeURI(content);
-            var link = document.createElement("a");
-            link.setAttribute("href", uri);
-            link.setAttribute("download", "data.csv");
-            parent.appendChild(link);
-            link.click();
+            if (window.navigator.msSaveBlob) {
+                console.debug("using msSaveBlob");
+                window.navigator.msSaveBlob(new Blob([content], {type:"text/csv;charset=utf-8;"}), "data.csv");
+            } else {            
+                console.debug("using download attr");
+                let uri = encodeURI("data:text/csv;charset=utf-8," + content);
+                var link = document.createElement("a");
+                link.setAttribute("href", uri);
+                link.setAttribute("download", "data.csv");
+                parent.appendChild(link);
+                link.click();
+            }
       });
       parent.appendChild(button);
     }
