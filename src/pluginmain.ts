@@ -3,6 +3,7 @@
 
 import * as trc from "trclib/trc2";
 import {Transformer} from "./transformer";
+import {DownloadHelper} from "./download-helper";
 import * as moment from "moment";
 
 declare var $:any;
@@ -86,9 +87,6 @@ export class Blame {
         
         let filterControl = this.createFilterControl();
         panelBody.appendChild(filterControl);
-
-        // let slider = this.createDateSlider();
-        // panelBody.appendChild(slider);
 
         let changesModal = Blame.createModal(Blame.CHANGE_HISTORY_MODAL, "Change History");
         parent.appendChild(changesModal);
@@ -301,6 +299,37 @@ export class Blame {
 
         let gridPanelBody = gridPanel.querySelector(".panel-body");
         gridPanelBody.appendChild(recordsTable);
+
+        let gridPanelHeader = gridPanel.querySelector(".panel-heading");
+        DownloadHelper.appendDownloadCsvButton(gridPanelHeader, ()=>{
+            return Blame.convertRecordsToISheetContents(sheetInfo, records);
+        });
+
+    }
+
+    private static convertRecordsToISheetContents = (sheetInfo:trc.ISheetInfoResult, records:any):trc.ISheetContents => {
+        let toReturn:trc.ISheetContents = { "RecId": []};
+
+        for(let colDef of sheetInfo.Columns) {
+            if (colDef.IsReadOnly === false) toReturn[colDef.Name] = [];            
+        }
+
+        toReturn["xLastTimestamp"] = [];
+        toReturn["xLastUser"] = [];
+
+        let keysWeCareAbout = Object.keys(toReturn);
+
+        for (let recId in records) {
+            toReturn["RecId"].push(recId);    
+            let thisRow = records[recId];
+            for(let colKey of keysWeCareAbout) {
+                if (colKey === "RecId") continue;
+                let colValue = thisRow[colKey] && thisRow[colKey].currentValue ? thisRow[colKey].currentValue : thisRow[colKey];
+                toReturn[colKey].push(colValue);
+            }
+        }
+
+        return toReturn;
     }
 
     private static addChartsPanel = (title:string, parent:Element):Element => {
