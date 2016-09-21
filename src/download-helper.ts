@@ -16,8 +16,7 @@ export class DownloadHelper {
             while (index < rowCount) {
                 let row = [];
                 for(let colKey of colKeys) {
-                    let colValue = data[colKey][index] && data[colKey][index].hasOwnProperty("currentValue") ? data[colKey][index].currentValue : data[colKey][index];
-                    row.push(colValue);
+                    row.push(data[colKey][index]);
                 }
                 grid.push(row);
                 index++;

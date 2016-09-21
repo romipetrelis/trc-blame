@@ -324,7 +324,7 @@ export class Blame {
             let thisRow = records[recId];
             for(let colKey of keysWeCareAbout) {
                 if (colKey === "RecId") continue;
-                let colValue = thisRow[colKey] && thisRow[colKey].currentValue ? thisRow[colKey].currentValue : thisRow[colKey];
+                let colValue = thisRow[colKey] && thisRow[colKey].hasOwnProperty("currentValue") ? thisRow[colKey].currentValue : thisRow[colKey];
                 toReturn[colKey].push(colValue);
             }
         }
