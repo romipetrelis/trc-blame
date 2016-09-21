@@ -5,7 +5,7 @@ export class DownloadHelper {
         button.type = "image";
         button.src = "https://trcanvasdata.blob.core.windows.net/publicimages/export-csv.png";
         button.addEventListener("click", (e)=> {
-            let data = getData();
+            let data = getData() as any;
             let colKeys = Object.keys(data);
             let grid = [];
             let rowCount = data[colKeys[0]].length;
@@ -16,7 +16,8 @@ export class DownloadHelper {
             while (index < rowCount) {
                 let row = [];
                 for(let colKey of colKeys) {
-                    row.push(data[colKey][index]);
+                    let colValue = data[colKey][index] && data[colKey][index].hasOwnProperty("currentValue") ? data[colKey][index].currentValue : data[colKey][index];
+                    row.push(colValue);
                 }
                 grid.push(row);
                 index++;
