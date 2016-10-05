@@ -3,7 +3,7 @@
 
 import * as trc from "trclib/trc2";
 import {Transformer} from "./transformer";
-import {DownloadHelper} from "./download-helper";
+import {DownloadHelper} from "trclib/trchtml";
 import * as moment from "moment";
 
 declare var $:any;
@@ -301,6 +301,7 @@ export class Blame {
         gridPanelBody.appendChild(recordsTable);
 
         let gridPanelHeader = gridPanel.querySelector(".panel-heading");
+        
         DownloadHelper.appendDownloadCsvButton(gridPanelHeader, ()=>{
             return Blame.convertRecordsToISheetContents(sheetInfo, records);
         });
