@@ -1,10 +1,10 @@
 {
     // ID must be unique on the gallery
-    "Id": "blame2.beta",
-    "Name": "[test-only] blame2.beta",
+    "Id": "blame2",
+    "Name": "Blame reporting plugin",
     "Author" :  "Romi",
     "Website" :  "https://github.com/Voter-Science/TRC-API-Samples",
-    "Description": "[Beta] A preview of an improved blame plugin",        
-    "Version": "1.0.0", // User SemVer
+    "Description": "blame reporting plugin. Get per-user edits, pivots, and download to csv.",        
+    "Version": "2.0.0", // User SemVer
     "Tags": [ "blame", "reports"  ]
 }
