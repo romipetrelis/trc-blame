@@ -49,10 +49,18 @@ export class Blame {
         next(plugin);
     }
 
-    private fetchDeltas = (sheet:trc.Sheet):void => {
-        sheet.getDeltas((segment)=> {
-            this.deltas = segment.Results;
+    private fetchDeltasCallback(segment : trc.DeltaEnumerator) : void {
+        // concat is slow. Use push() instead
+        // http://stackoverflow.com/a/4156156/534514
+         //this.deltas = this.deltas.concat(segment.Results);
+         var thisArray =this.deltas; 
+         thisArray.push.apply(thisArray, segment.Results);
+         var percent : number = Math.round(this.deltas.length * 100 / this.sheetInfo.LatestVersion);
+         $("#LoadStatus").text("Loaded " + this.deltas.length + " of " + this.sheetInfo.LatestVersion + " ( " + percent + "%) deltas.");
 
+         if (segment.NextLink == null) {
+             $("#LoadStatus").hide();
+             // Done enumerating! 
             let startMoment = moment(this.deltas.length > 0 ? this.deltas[0].Timestamp : new Date()).startOf("month");
             let endMoment = moment().endOf("month");
             
@@ -62,7 +70,14 @@ export class Blame {
             this.filters.endDate = Blame.formatDateForFilter(this.maxTimestamp);
 
             this.render();
-        });
+         } else {
+            segment.GetNext((segment) => this.fetchDeltasCallback(segment));
+         }
+    }        
+
+    private fetchDeltas = (sheet:trc.Sheet):void => {
+        this.deltas = [];
+        sheet.getDeltas((segment) => this.fetchDeltasCallback(segment));
     };
 
     private render = () => {
