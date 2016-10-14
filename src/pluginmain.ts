@@ -5,6 +5,7 @@ import * as trc from "trclib/trc2";
 import {Transformer} from "./transformer";
 import {DownloadHelper} from "trclib/trchtml";
 import * as moment from "moment";
+import {TrcHelper} from "./trc-helper";
 
 declare var $:any;
 declare var noUiSlider:any;
@@ -41,9 +42,11 @@ export class Blame {
         let trcSheet = new trc.Sheet(sheet),
             plugin = new Blame(trcSheet, container);
         
-        trcSheet.getInfo((result:trc.ISheetInfoResult)=> {
+        TrcHelper.getInfo(trcSheet).then((result:trc.ISheetInfoResult) => {
             plugin.sheetInfo = result;
             plugin.fetchDeltas(trcSheet);
+        }).catch((error:any)=> {
+            console.log(`Caught an error! ${error}`);
         });
 
         next(plugin);
